@@ -11,12 +11,14 @@ const demoImage = document.getElementById("demoImage");
 const nav = document.querySelectorAll(".tabNav");
 const upload = document.getElementById("upload");
 
+let currentMetadata = null;
+let currentFile = null;
+let activeTab = "BASIC";
+
 fileUploadBtn.addEventListener("click", () => fileInput.click());
 
 fileInput.addEventListener("change", async (event) => {
   const image = event.target.files[0];
-
-  console.log(image);
 
   handleFile(image);
 });
@@ -46,76 +48,143 @@ upload.addEventListener("drop", (e) => {
 async function handleFile(file) {
   showLoading();
 
-  const isHeic =
-    file.name.toLowerCase().endsWith(".heic") || file.type === "image/heic";
-
-  let previewUrl;
-  let metadata;
-
-  if (isHeic) {
-    const converted = await handleHeic(file);
-
-    previewUrl = converted.url;
-
-    metadata = await extractMetadata(converted.blob);
-  } else {
-    previewUrl = URL.createObjectURL(file);
-    metadata = await extractMetadata(file);
-  }
-
-  metadataSec.style.display = "flex";
-  demoImage.src = previewUrl;
-  hideLoading();
-
   nav.forEach((tab) => {
     tab.addEventListener("click", (e) => {
       nav.forEach((t) => t.classList.remove("active"));
-      e.currentTarget.classList.add("active");
+
+      const el = e.currentTarget;
+      el.classList.add("active");
+
+      activeTab = el.dataset.type;
+
+      renderData();
     });
   });
 
-  handleUI(file, metadata);
+  try {
+    const isHeic =
+      file.name.toLowerCase().endsWith(".heic") || file.type === "image/heic";
+
+    let previewUrl;
+    let metadata;
+    const imageTitle = document.getElementById("imageTitle");
+    const imageDetail = document.getElementById("imageDetail");
+
+    if (isHeic) {
+      const converted = await handleHeic(file);
+
+      previewUrl = converted.url;
+
+      metadata = await extractMetadata(file);
+    } else {
+      previewUrl = URL.createObjectURL(file);
+      metadata = await extractMetadata(file);
+    }
+
+    currentMetadata = metadata;
+    currentFile = file;
+
+    imageTitle.innerHTML = file.name;
+    imageDetail.innerHTML = file.type
+      ? `${file.type} • ${file.lastModified}`
+      : file.lastModified;
+
+    metadataSec.style.display = "flex";
+    demoImage.src = previewUrl;
+
+    renderData();
+  } finally {
+    hideLoading();
+  }
 }
 
-function handleUI(file, metadata) {
-  const imageTitle = document.getElementById("imageTitle");
-  const imageDetail = document.getElementById("imageDetail");
+function renderData() {
+  if (!currentMetadata || !currentFile) return;
+
   const data = document.querySelector(".data");
-
-  const date = new Date(file.lastModified);
-
-  imageTitle.textContent = file.name;
-  imageDetail.textContent = file.type
-    ? `${file.type} • ${date.toLocaleDateString()}`
-    : date.toLocaleDateString();
 
   data.innerHTML = "";
 
-  const ul = document.createElement("ul");
+  let displayData = {};
 
-  const displayData = {
+  switch (activeTab) {
+    case "BASIC":
+      displayData = getBasicData(currentFile);
+
+      if (Object.keys(displayData).length === 0) {
+        data.innerHTML = `<p class="no-data">Metadata is unavailable for this image.</p>`;
+      }
+      break;
+    case "EXIF":
+      displayData = currentMetadata.exif || {};
+
+      if (Object.keys(displayData).length === 0) {
+        data.innerHTML = `<p class="no-data">EXIF metadata is unavailable for this image.</p>`;
+      }
+
+      break;
+    case "GPS":
+      displayData = currentMetadata.gps || {};
+
+      console.log(currentMetadata.gps);
+
+      if (Object.keys(displayData).length === 0) {
+        data.innerHTML = `<p class="no-data">GPS metadata is unavailable for this image.</p>`;
+      }
+
+      break;
+    case "RAW":
+      displayData = currentMetadata.raw || {};
+
+      if (Object.keys(displayData).length === 0) {
+        data.innerHTML = `<p class="no-data">RAW metadata is unavailable for this image.</p>`;
+      }
+      break;
+  }
+
+  renderList(displayData);
+}
+
+function renderList(obj) {
+  const data = document.querySelector(".data");
+  if (!obj || Object.keys(obj).length === 0) return;
+
+  const ul = document.createElement("ul");
+  ul.classList.add = "metadataUl";
+
+  Object.entries(obj).forEach(([key, value]) => {
+    const li = document.createElement("li");
+
+    li.innerHTML = `<span>${formatKey(key)}:</span> ${typeof value === "object" ? JSON.stringify(value) : value === "" ? "UNKNOWN" : value}`;
+
+    ul.appendChild(li);
+  });
+
+  if (obj.latitude && obj.longitude) {
+    const mapLi = document.createElement("li");
+    mapLi.className = "maps-row";
+
+    const mapUrl = `https://www.google.com/maps?q=${obj.latitude},${obj.longitude}`;
+
+    mapLi.innerHTML = `
+      <span>Location:</span>
+      <a href="${mapUrl}" target="_blank" class="maps-link">View on Google Maps</a>
+    `;
+    ul.appendChild(mapLi);
+  }
+
+  data.appendChild(ul);
+}
+
+function getBasicData(file) {
+  const date = new Date(file.lastModified);
+
+  return {
     name: file.name,
     type: file.type,
     size: formatSize(file.size),
     lastModified: date.toLocaleDateString(),
   };
-
-  Object.entries(displayData)
-    .filter(([key, val]) => val !== "")
-    .forEach(([key, value]) => {
-      const li = document.createElement("li");
-
-      const keySpan = document.createElement("span");
-      keySpan.textContent = `${formatKey(key)}: `;
-
-      const valueText = document.createTextNode(value) ?? null;
-
-      li.appendChild(keySpan);
-      li.appendChild(valueText);
-      ul.appendChild(li);
-    });
-
-  data.appendChild(ul);
 }
 
 function showLoading() {

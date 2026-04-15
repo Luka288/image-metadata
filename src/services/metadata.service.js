@@ -38,15 +38,69 @@ const TRASH_KEYS = new Set([
 ]);
 
 export async function extractMetadata(file) {
-  const metadata = await exifr.parse(file, true, {
+  const raw = await exifr.parse(file, {
     gps: true,
+    exif: true,
+    reviveValues: true,
   });
 
-  return Object.fromEntries(
-    Object.entries(metadata).filter(
+  if (!raw) return { raw: {}, exif: {}, gps: {} };
+
+  const cleanRaw = Object.fromEntries(
+    Object.entries(raw).filter(
       ([key, val]) =>
-        !TRASH_KEYS.has(key) && val !== undefined && !isBinaryData(val),
+        !TRASH_KEYS.has(key) &&
+        val !== undefined &&
+        val !== null &&
+        !isBinaryData(val),
     ),
+  );
+
+  return {
+    raw: cleanRaw,
+    exif: extractExif(cleanRaw),
+    gps: extractGPS(raw),
+  };
+}
+
+function extractGPS(data) {
+  if (!data) return {};
+
+  const gpsData = {};
+
+  Object.entries(data).forEach(([key, value]) => {
+    if (
+      key.toLowerCase().includes("gps") ||
+      key === "latitude" ||
+      key === "longitude"
+    ) {
+      gpsData[key] = value;
+    }
+  });
+
+  return {
+    ...gpsData,
+    latitude: data.latitude ? data.latitude : data.gpsLatitude,
+    longitude: data.longitude ? data.longitude : data.gpsLongitude,
+  };
+}
+
+function extractExif(data) {
+  const EXIF_KEYS = new Set([
+    "Make",
+    "Model",
+    "ISO",
+    "FNumber",
+    "ExposureTime",
+    "FocalLength",
+    "LensModel",
+    "Orientation",
+    "ExifImageWidth",
+    "ExifImageHeight",
+  ]);
+
+  return Object.fromEntries(
+    Object.entries(data || {}).filter(([key]) => EXIF_KEYS.has(key)),
   );
 }
 
