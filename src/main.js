@@ -129,8 +129,6 @@ function renderData() {
     case "GPS":
       displayData = currentMetadata.gps || {};
 
-      console.log(currentMetadata.gps);
-
       if (Object.keys(displayData).length === 0) {
         data.innerHTML = `<p class="no-data">GPS metadata is unavailable for this image.</p>`;
       }
