@@ -112,42 +112,25 @@ function renderData() {
 
   data.innerHTML = "";
 
-  let displayData = {};
+  const tabMap = {
+    BASIC: () => getBasicData(currentFile),
+    EXIF: () => currentMetadata.exif,
+    GPS: () => currentMetadata.gps,
+    RAW: () => currentMetadata.raw,
+  };
 
-  switch (activeTab) {
-    case "BASIC":
-      displayData = getBasicData(currentFile);
+  let rawDisplay = tabMap[activeTab]?.() || {};
 
-      if (Object.keys(displayData).length === 0) {
-        data.innerHTML = `<p class="no-data">Metadata is unavailable for this image.</p>`;
-      }
-      break;
-    case "EXIF":
-      displayData = currentMetadata.exif || {};
-
-      if (Object.keys(displayData).length === 0) {
-        data.innerHTML = `<p class="no-data">EXIF metadata is unavailable for this image.</p>`;
-      }
-
-      break;
-    case "GPS":
-      displayData = currentMetadata.gps || {};
-
-      if (Object.keys(displayData).length === 0) {
-        data.innerHTML = `<p class="no-data">GPS metadata is unavailable for this image.</p>`;
-      }
-
-      break;
-    case "RAW":
-      displayData = currentMetadata.raw || {};
-
-      if (Object.keys(displayData).length === 0) {
-        data.innerHTML = `<p class="no-data">RAW metadata is unavailable for this image.</p>`;
-      }
-      break;
+  if (!rawDisplay || Object.keys(rawDisplay).length === 0) {
+    data.innerHTML = `<p class="no-data">No metadata available for this section.</p>`;
+    return;
   }
 
-  renderList(displayData);
+  const displayData = JSON.stringify(rawDisplay, (key, value) =>
+    value === undefined ? "UNKNOWN" : value,
+  );
+
+  renderList(JSON.parse(displayData));
 }
 
 function renderList(obj) {

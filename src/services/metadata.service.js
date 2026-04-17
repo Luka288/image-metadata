@@ -26,9 +26,24 @@ export async function extractMetadata(file) {
 
   return {
     raw: cleanRaw,
-    exif: cleanRaw,
+    exif: extractEXIF(cleanRaw),
     gps: extractGPS(raw),
   };
+}
+
+function extractEXIF(data) {
+  const exifKeys = [
+    "Make",
+    "Model",
+    "ISO",
+    "FNumber",
+    "ExposureTime",
+    "DateTimeOriginal",
+  ];
+
+  return Object.fromEntries(
+    Object.entries(data).filter(([key]) => exifKeys.includes(key)),
+  );
 }
 
 function extractGPS(data) {
