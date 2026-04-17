@@ -1,9 +1,13 @@
 import "./style.css";
-import { extractMetadata } from "./services/metadata.service";
 import { formatSize } from "./utils/formatSize";
 import { formatKey } from "./utils/keyformat";
-import { handleHeic } from "./services/heic.service";
-import { removeMetadata } from "./services/strip.service";
+import {
+  extractMetadata,
+  handleHeic,
+  removeMetadata,
+  showLoading,
+  hideLoading,
+} from "./services/index";
 
 const fileUploadBtn = document.getElementById("fileUploadInput");
 const fileInput = document.getElementById("fileInput");
@@ -188,20 +192,22 @@ function getBasicData(file) {
   };
 }
 
+// removes metadata from image and downloads clean
+// image automatically
 remove.addEventListener("click", async () => {
   if (!currentFile) return;
 
-  await removeMetadata(currentFile);
+  try {
+    showLoading();
+    await removeMetadata(currentFile);
+  } catch (error) {
+    console.error(error);
+  } finally {
+    hideLoading();
+  }
 });
 
-function showLoading() {
-  document.querySelector(".overlay").style.display = "flex";
-}
-
-function hideLoading() {
-  document.querySelector(".overlay").style.display = "none";
-}
-
+// button to download image metadata
 downloadBtn.addEventListener("click", () => {
   if (!currentMetadata) return;
 
